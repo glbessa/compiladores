@@ -1,0 +1,115 @@
+PARSER_BEGIN(Lugosi)
+
+public class Lugosi
+{
+    public static void main(String[] args) throws ParseException, java.io.IOException
+    {
+        Lugosi parser = new Lugosi(new java.io.FileReader(args[0]));
+        parser.Lugosi();
+        Token token;
+        while ((token = parser.getNextToken()).kind != Lugosi.EOF) {
+            switch (token.kind) {
+                case Lugosi.VOID:
+                case Lugosi.INT:
+                case Lugosi.FLOAT:
+                case Lugosi.LET:
+                case Lugosi.ENTRYFUNC:
+                case Lugosi.PRINT:
+                    System.out.println("Palavra reservada: " + token.image);
+                    break;
+                case Lugosi.OPEN_BRACES:
+                    System.out.println("Abre parênteses: " + token.image);
+                    break;
+                case Lugosi.CLOSE_BRACES:
+                    System.out.println("Fecha parênteses: " + token.image);
+                    break;    
+                case Lugosi.OPEN_BRACKETS:
+                    System.out.println("Abre colchetes: " + token.image);
+                    break;
+                case Lugosi.CLOSE_BRACKETS:
+                    System.out.println("Fecha colchetes: " + token.image);
+                    break;
+                case Lugosi.OPEN_KEYS:
+                    System.out.println("Abre chaves: " + token.image);
+                    break;
+                case Lugosi.CLOSE_KEYS:
+                    System.out.println("Fecha chaves: " + token.image);
+                    break;
+                case Lugosi.NUM:
+                    System.out.println("Número: " + token.image);
+                    break;
+                case Lugosi.ID:
+                    System.out.println("Identificador: " + token.image);
+                    break;
+                case Lugosi.SEMICOLON:
+                    System.out.println("Ponto e vírgula: " + token.image);
+                    break;
+                case Lugosi.ASSIGN:
+                    System.out.println("Atribuição: " + token.image);
+                    break;
+                default:
+                    System.out.println("Alguma coisa");
+            }
+        }
+    }
+}
+
+PARSER_END(Lugosi)
+
+SKIP : { " " | "\t" | "\r" | "\n" }
+
+TOKEN :
+{
+    <VOID: "void"> 
+    | <INT: "int"> 
+    | <FLOAT: "float"> 
+    | <ENTRYFUNC: "main"> 
+    | <OPEN_BRACKETS: "["> 
+    | <CLOSE_BRACKETS: "]"> 
+    | <OPEN_KEYS: "{"> 
+    | <CLOSE_KEYS: "}"> 
+    | <OPEN_BRACES: "("> 
+    | <CLOSE_BRACES: ")"> 
+    | <SEMICOLON: ";"> 
+    | <ASSIGN: ":="> 
+    | <PRINT: "print"> 
+    | <LET: "let"> 
+    | <NUM: (["0"-"9"])+ | (["0"-"9"])* "." (["0"-"9"])+>
+    | <ID: [ "a"-"z" , "A"-"Z" ] ([ "a"-"z" , "A"-"Z" , "0"-"9" ])*>
+}
+
+void Lugosi() :
+{}
+{
+    <VOID> <ENTRYFUNC> <OPEN_KEYS> Commands() <CLOSE_KEYS>
+    <EOF>
+}
+
+// COMANDOS −> COM ";" COMANDOS’
+void Commands ( ) :
+{}
+{
+    Com() <SEMICOLON> CommandsL()
+}
+
+// COMANDOS’ −> COM " ; " COMANDOS ’ | e p s i l o n
+void CommandsL( ) :
+{}
+{
+    (Com() <SEMICOLON> CommandsL())?
+}
+
+// COM −> "let int|float" id ":=" EXP | "print" "(" EXP ")"
+void Com() :
+{}
+{
+    <LET> (<INT> | <FLOAT>) <ID> (<ASSIGN> Exp())? 
+    | <ID> <ASSIGN> Exp() 
+    | <PRINT> <OPEN_BRACES> Exp() <CLOSE_BRACES> 
+}
+
+void Exp() :
+{}
+{
+    <NUM> | <ID>
+}

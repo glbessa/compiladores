@@ -1,0 +1,5 @@
+void main{
+    let float hehe;
+    hehe = 0.0;
+    print hehe;
+}

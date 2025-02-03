@@ -1,0 +1,5 @@
+#!/bin/sh
+
+javacc Lugosi.jj
+javac *.java
+java Lugosi $1
