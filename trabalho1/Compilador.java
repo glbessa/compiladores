@@ -11,8 +11,9 @@ class Compilador{
 			arv = as.parseProg();
 			
 			CodeGen backend = new CodeGen();
-			String codigo = backend.geraCodigo(arv);
-			System.out.println(codigo);
+			//String codigo = backend.geraCodigo(arv);
+			System.out.println(backend.executeCode(arv));
+			//System.out.println(codigo);
 		} catch(Exception e) {			
 			System.out.println("Erro de compilação:\n" + e);
 		}

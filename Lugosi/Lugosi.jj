@@ -1,56 +1,19 @@
 PARSER_BEGIN(Lugosi)
 
+import ast.*;
+
 public class Lugosi
 {
     public static void main(String[] args) throws ParseException, java.io.IOException
     {
         Lugosi parser = new Lugosi(new java.io.FileReader(args[0]));
-        parser.Lugosi();
-        Token token;
-        while ((token = parser.getNextToken()).kind != Lugosi.EOF) {
-            switch (token.kind) {
-                case Lugosi.VOID:
-                case Lugosi.INT:
-                case Lugosi.FLOAT:
-                case Lugosi.LET:
-                case Lugosi.ENTRYFUNC:
-                case Lugosi.PRINT:
-                    System.out.println("Palavra reservada: " + token.image);
-                    break;
-                case Lugosi.OPEN_BRACES:
-                    System.out.println("Abre parênteses: " + token.image);
-                    break;
-                case Lugosi.CLOSE_BRACES:
-                    System.out.println("Fecha parênteses: " + token.image);
-                    break;    
-                case Lugosi.OPEN_BRACKETS:
-                    System.out.println("Abre colchetes: " + token.image);
-                    break;
-                case Lugosi.CLOSE_BRACKETS:
-                    System.out.println("Fecha colchetes: " + token.image);
-                    break;
-                case Lugosi.OPEN_KEYS:
-                    System.out.println("Abre chaves: " + token.image);
-                    break;
-                case Lugosi.CLOSE_KEYS:
-                    System.out.println("Fecha chaves: " + token.image);
-                    break;
-                case Lugosi.NUM:
-                    System.out.println("Número: " + token.image);
-                    break;
-                case Lugosi.ID:
-                    System.out.println("Identificador: " + token.image);
-                    break;
-                case Lugosi.SEMICOLON:
-                    System.out.println("Ponto e vírgula: " + token.image);
-                    break;
-                case Lugosi.ASSIGN:
-                    System.out.println("Atribuição: " + token.image);
-                    break;
-                default:
-                    System.out.println("Alguma coisa");
-            }
-        }
+        Prog tree = parser.Lugosi();
+        generateCode(tree, args[0]);
+    }
+
+    public static void generateCode(Prog tree, String filename)
+    {
+        
     }
 }
 
@@ -62,7 +25,8 @@ TOKEN :
 {
     <VOID: "void"> 
     | <INT: "int"> 
-    | <FLOAT: "float"> 
+    | <FLOAT: "float">
+    | <BOOL: "bool"> 
     | <ENTRYFUNC: "main"> 
     | <OPEN_BRACKETS: "["> 
     | <CLOSE_BRACKETS: "]"> 
@@ -71,45 +35,121 @@ TOKEN :
     | <OPEN_BRACES: "("> 
     | <CLOSE_BRACES: ")"> 
     | <SEMICOLON: ";"> 
-    | <ASSIGN: ":="> 
-    | <PRINT: "print"> 
+    | <COLON: ",">
+    | <ASSIGN: ":=">
+    | <SUM: "+">
+    | <SUB: "-">
+    | <MULT: "*">
+    | <DIV: "/">
+    | <AND: "&&">
+    | <OR: "||">
+    | <LT: "<">
+    | <GT: ">">
+    | <EQ: "==">
+    | <PRINTIO: "printIO"> 
+    | <READIO: "readIO">
     | <LET: "let"> 
+    | <DEF: "def">
+    | <IF: "if">
+    | <WHILE: "while">
+    | <DO: "do">
+    | <RETURN: "return">
+    | <TRUE: "true">
+    | <FALSE: "false">
     | <NUM: (["0"-"9"])+ | (["0"-"9"])* "." (["0"-"9"])+>
     | <ID: [ "a"-"z" , "A"-"Z" ] ([ "a"-"z" , "A"-"Z" , "0"-"9" ])*>
 }
 
-void Lugosi() :
+void Lugosi():
 {}
 {
-    <VOID> <ENTRYFUNC> <OPEN_KEYS> Commands() <CLOSE_KEYS>
+    Main() <OPEN_KEYS> Commands() <CLOSE_KEYS>
     <EOF>
 }
 
-// COMANDOS −> COM ";" COMANDOS’
-void Commands ( ) :
+void Main():
 {}
 {
-    Com() <SEMICOLON> CommandsL()
+    <VOID> <ENTRYFUNC> <OPEN_KEYS> VarDecl() SeqComandos() <CLOSE_KEYS>
 }
 
-// COMANDOS’ −> COM " ; " COMANDOS ’ | e p s i l o n
-void CommandsL( ) :
+void VarDecl():
 {}
 {
-    (Com() <SEMICOLON> CommandsL())?
+    (VarDecl() <LET> Tipo() <ID> <SEMICOLON>)?
 }
 
-// COM −> "let int|float" id ":=" EXP | "print" "(" EXP ")"
-void Com() :
+void Tipo():
 {}
 {
-    <LET> (<INT> | <FLOAT>) <ID> (<ASSIGN> Exp())? 
-    | <ID> <ASSIGN> Exp() 
-    | <PRINT> <OPEN_BRACES> Exp() <CLOSE_BRACES> 
+    <FLOAT>
+    | <BOOL>
+    | <VOID>
 }
 
+// SeqComandos -> SeqComandos Comando | vazio
+void SeqComandos():
+{}
+{
+    SeqComandos() Comando()
+}
+
+// Comando -> ID ":=" EXP ";" |
+void Comando():
+{}
+{
+    <ID> <ASSIGN> Exp() <SEMICOLON>
+    | <ID> <OPEN_BRACES> (ListaExp())? <SEMICOLON>
+    | <IF> Exp() <OPEN_KEYS> SeqComandos() <CLOSE_KEYS> <SEMICOLON>
+    | <WHILE> Exp() <DO> <OPEN_KEYS> SeqComandos() <CLOSE_KEYS> <SEMICOLON>
+    | <ID> <ASSIGN> <READIO> <OPEN_BRACES> <CLOSE_BRACES> <SEMICOLON>
+    | <RETURN> Exp() <SEMICOLON>
+    | <PRINTIO> Exp() <SEMICOLON>
+}
+
+// TODO: fix grammar
 void Exp() :
+{Token t = null; Exp result = null;}
+{
+    <OPEN_BRACES> Exp() Op() Exp() <CLOSE_BRACES>
+    | Fator()
+}
+
+// TODO: fix grammar
+void Fator():
 {}
 {
-    <NUM> | <ID>
+    <ID>
+    | <ID> <OPEN_BRACES> (ListaExp())? <CLOSE_BRACES>
+    | <NUM>
+    | <TRUE>
+    | <FALSE>
+}
+
+void Op():
+{}
+{
+
+}
+
+void ListaExp():
+{}
+{
+    Exp()
+    | ListaExp() <COLON> Exp()
+}
+
+// TODO: fix grammar
+void Func():
+{}
+{
+    Func() <DEF> Tipo() <ID> <OPEN_BRACES> (ListaArg())? <CLOSE_BRACES> <OPEN_KEYS> VarDecl() SeqComandos() <CLOSE_KEYS>
+    | <DEF> Tipo() <ID> <OPEN_BRACES> (ListaArg())? <CLOSE_BRACES> <OPEN_KEYS> VarDecl() SeqComandos() <CLOSE_KEYS>
+}
+
+void ListaArg():
+{}
+{
+    Tipo() <ID> 
+    | ListaArg() <COLON> Tipo() <ID>
 }

@@ -1,0 +1,7 @@
+void main{
+    let float hehe;
+    hehe := 9.0;
+    let int haha := 11;
+    print(hehe);
+    print(haha);
+}

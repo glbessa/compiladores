@@ -1,4 +1,0 @@
-#!/bin/sh
-
-javacc Lugosi.jj
-javac *.java
