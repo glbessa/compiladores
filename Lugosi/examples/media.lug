@@ -1,0 +1,27 @@
+void main{
+    let float n1;
+    let float n2;
+    let float n3;
+    let float media;
+
+    n1 := readIO();
+    n2 := readIO();
+    n3 := readIO();
+
+    media := calcularMedia(n1, n2, n3);
+    printIO media;
+
+    if (media < 7.0) {
+        printIO 4.0;
+    };
+
+    if ((media > 7.0) || (media == 7.0)) {
+        printIO 2.0;
+    };
+}
+
+def float calcularMedia(float n1, float n2, float n3) {
+    let float soma;
+    soma := ((n1 + n2) + n3);
+    return (soma / 3.0);
+}

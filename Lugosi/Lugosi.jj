@@ -1,6 +1,10 @@
 PARSER_BEGIN(Lugosi)
 
 import ast.*;
+import java.util.ArrayList;
+import java.io.File;
+import java.io.FileWriter;
+import java.io.IOException;
 
 public class Lugosi
 {
@@ -8,12 +12,22 @@ public class Lugosi
     {
         Lugosi parser = new Lugosi(new java.io.FileReader(args[0]));
         Prog tree = parser.Lugosi();
-        generateCode(tree, args[0]);
+        generateCode(tree, args[1]);
     }
 
     public static void generateCode(Prog tree, String filename)
     {
-        
+        String code = tree.genCode();
+        File file = null;
+        FileWriter fileWriter = null;
+        try {
+            file = new File(filename + ".java");
+            fileWriter = new FileWriter(file);
+            fileWriter.write(code);
+            fileWriter.close();
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
     }
 }
 
@@ -60,96 +74,142 @@ TOKEN :
     | <ID: [ "a"-"z" , "A"-"Z" ] ([ "a"-"z" , "A"-"Z" , "0"-"9" ])*>
 }
 
-void Lugosi():
-{}
+Prog Lugosi():
+{Main main = null; ArrayList<Fun> funcs = new ArrayList();}
 {
-    Main() <OPEN_KEYS> Commands() <CLOSE_KEYS>
+    main=Main() funcs=Func()
     <EOF>
+    { return new Prog(main, funcs); }
 }
 
-void Main():
-{}
+Main Main():
+{ArrayList<VarDecl> varDecls = null; ArrayList<Comando> comandos = null;}
 {
-    <VOID> <ENTRYFUNC> <OPEN_KEYS> VarDecl() SeqComandos() <CLOSE_KEYS>
+    <VOID> <ENTRYFUNC> <OPEN_KEYS> varDecls=VarDecl() comandos=SeqComandos() <CLOSE_KEYS>
+    { return new Main(varDecls, comandos); }
 }
 
-void VarDecl():
-{}
+ArrayList<VarDecl> VarDecl():
+{String tipo = null; Token id = null; ArrayList<VarDecl> varDecls = new ArrayList();}
 {
-    (VarDecl() <LET> Tipo() <ID> <SEMICOLON>)?
+    ( <LET> tipo=Tipo() id=<ID> <SEMICOLON> { varDecls.add(new VarDecl(tipo, id.image)); } )+
+    {return varDecls;}
 }
 
-void Tipo():
-{}
+String Tipo():
+{Token t = null;}
 {
-    <FLOAT>
-    | <BOOL>
-    | <VOID>
+    (t=<FLOAT>
+    | t=<BOOL>
+    | t=<VOID>)
+
+    { return t.image; }
 }
 
-// SeqComandos -> SeqComandos Comando | vazio
-void SeqComandos():
-{}
+ArrayList<Comando> SeqComandos():
+{Comando c = null; ArrayList<Comando> comandos = new ArrayList();}
 {
-    SeqComandos() Comando()
+    (c=Comando() { comandos.add(c); })+
+    {return comandos;}
 }
 
-// Comando -> ID ":=" EXP ";" |
-void Comando():
-{}
+Comando Comando():
+{Token id = null; Exp exp = null; ArrayList<Comando> bloco = null; Comando result = null; int line = 1;}
 {
-    <ID> <ASSIGN> Exp() <SEMICOLON>
-    | <ID> <OPEN_BRACES> (ListaExp())? <SEMICOLON>
-    | <IF> Exp() <OPEN_KEYS> SeqComandos() <CLOSE_KEYS> <SEMICOLON>
-    | <WHILE> Exp() <DO> <OPEN_KEYS> SeqComandos() <CLOSE_KEYS> <SEMICOLON>
-    | <ID> <ASSIGN> <READIO> <OPEN_BRACES> <CLOSE_BRACES> <SEMICOLON>
-    | <RETURN> Exp() <SEMICOLON>
-    | <PRINTIO> Exp() <SEMICOLON>
+    (id=<ID> result=AtribuicaoLeituraChamadaFuncao(id) <SEMICOLON>
+    | <IF> exp=Exp() <OPEN_KEYS> bloco=SeqComandos() <CLOSE_KEYS> <SEMICOLON> { result = new CIf(line, exp, bloco); }
+    | <WHILE> exp=Exp() <DO> <OPEN_KEYS> bloco=SeqComandos() <CLOSE_KEYS> <SEMICOLON> { result = new CWhile(line, exp, bloco); }
+    | <RETURN> exp=Exp() <SEMICOLON> { result = new CReturn(line, exp); }
+    | (id=<PRINTIO> { line = id.beginLine; } exp=Exp() <SEMICOLON> {result = new CPrint(line, exp);}))
+
+    {return result;}
 }
 
-// TODO: fix grammar
-void Exp() :
+Comando AtribuicaoLeituraChamadaFuncao(Token id):
+{ArrayList<Exp> exps = null; Comando result = null;}
+{
+    (<OPEN_BRACES> (exps=ListaExp())? <CLOSE_BRACES> {result = new CChamadaFun(id.beginLine, id.image, exps);}
+    | <ASSIGN> result=AtribuicaoLeitura(id))
+
+    {return result;}
+}
+
+Comando AtribuicaoLeitura(Token id):
+{Exp exp = null;}
+{
+    exp=Exp() {return new CAtribuicao(id.beginLine, id.image, exp);}
+    | <READIO> <OPEN_BRACES> <CLOSE_BRACES> {return new CReadInput(id.beginLine, id.image);}
+}
+
+Exp Exp() :
+{Token t = null; Exp e1 = null; Exp e2 = null; String op = null; Exp result = null;}
+{
+    (<OPEN_BRACES> e1=Exp() op=Op() e2=Exp() <CLOSE_BRACES> {result = new EOpExp(op, e1, e2);}
+    | result=Fator())
+
+    {return result;}
+}
+
+ArrayList<Exp> ListaExp():
+{ArrayList exps = new ArrayList(); Exp exp = null;}
+{
+    exp=Exp()  {exps.add(exp);}
+    (<COLON> exp=Exp() {exps.add(exp);})*
+    {return exps;}
+}
+
+Exp Fator():
 {Token t = null; Exp result = null;}
 {
-    <OPEN_BRACES> Exp() Op() Exp() <CLOSE_BRACES>
-    | Fator()
+    (t=<ID> result=FatorId(t)
+    | t=<NUM> { result = new EFloat(Float.parseFloat(t.image)); }
+    | <TRUE> { result = new ETrue(); }
+    | <FALSE> { result = new EFalse(); })
+
+    {return result;}
 }
 
-// TODO: fix grammar
-void Fator():
-{}
+Exp FatorId(Token t):
+{ArrayList<Exp> args = new ArrayList();}
 {
-    <ID>
-    | <ID> <OPEN_BRACES> (ListaExp())? <CLOSE_BRACES>
-    | <NUM>
-    | <TRUE>
-    | <FALSE>
+    <OPEN_BRACES> (args=ListaExp())? <CLOSE_BRACES> { return new EChamadaFun(t.image, args); }
+    | { return new EVar(t.image); }
 }
 
-void Op():
-{}
+String Op():
+{Token t = null;}
 {
+    (t=<SUM>
+    | t=<SUB>
+    | t=<MULT>
+    | t=<DIV>
+    | t=<AND>
+    | t=<OR>
+    | t=<LT>
+    | t=<GT>
+    | t=<EQ>)
 
+    { return t.image; }
 }
 
-void ListaExp():
-{}
+ArrayList<Fun> Func():
+{String tipoRetorno = null; Token id = null; ArrayList<ParamFormalFun> args = new ArrayList(); ArrayList<VarDecl> varDecls = null; ArrayList<Comando> comandos = null; ArrayList<Fun> funcs = new ArrayList();}
 {
-    Exp()
-    | ListaExp() <COLON> Exp()
+    ( <DEF> tipoRetorno=Tipo() id=<ID> <OPEN_BRACES> (args=ListaArg())? <CLOSE_BRACES> <OPEN_KEYS> varDecls=VarDecl() comandos=SeqComandos() <CLOSE_KEYS> { funcs.add(new Fun(id.image, args, tipoRetorno, varDecls, comandos)); } )*
+    {return funcs;}
 }
 
-// TODO: fix grammar
-void Func():
-{}
+ArrayList<ParamFormalFun> ListaArg():
+{ParamFormalFun arg = null; ArrayList<ParamFormalFun> args = new ArrayList();}
 {
-    Func() <DEF> Tipo() <ID> <OPEN_BRACES> (ListaArg())? <CLOSE_BRACES> <OPEN_KEYS> VarDecl() SeqComandos() <CLOSE_KEYS>
-    | <DEF> Tipo() <ID> <OPEN_BRACES> (ListaArg())? <CLOSE_BRACES> <OPEN_KEYS> VarDecl() SeqComandos() <CLOSE_KEYS>
+    arg=Arg() {args.add(arg);}
+    (<COLON> arg=Arg() {args.add(arg);})*
+    {return args;}
 }
 
-void ListaArg():
-{}
+ParamFormalFun Arg():
+{Token id = null; String tipo = null;}
 {
-    Tipo() <ID> 
-    | ListaArg() <COLON> Tipo() <ID>
+    tipo=Tipo() id=<ID>
+    {return new ParamFormalFun(tipo, id.image);}
 }

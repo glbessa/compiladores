@@ -1,5 +1,5 @@
-void main{
+void main {
     let float hehe;
     hehe := 9.0;
-    print(hehe);
+    printIO hehe;
 }
